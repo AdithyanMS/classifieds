@@ -2,23 +2,16 @@ package main
 
 import (
 	"context"
-	"fmt"
 
-	"net/http"
-
+	"github.com/AdithyanMS/classifieds/controllers"
+	"github.com/AdithyanMS/classifieds/middlewares"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/gorilla/mux"
 )
 
-func hey(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(`hey there guys`))
-}
-
 func main() {
-	r := mux.NewRouter()
-	serverPortAddr := "8080"
 	rds := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
@@ -30,9 +23,20 @@ func main() {
 		log.Errorf("Error initialising redis")
 	}
 	log.Infof("pong: %s", Pong)
-	r.HandleFunc("/hey", hey)
-	fmt.Printf("starting server on %s", serverPortAddr)
-	http.ListenAndServe(fmt.Sprintf(":%s", serverPortAddr), r)
-	fmt.Println("server stopped")
+	router := initRouter()
+	router.Run(":8080")
+}
 
+func initRouter() *gin.Engine {
+	router := gin.Default()
+	unsecured := router.Group("/v1")
+	{
+		unsecured.POST("/login", controllers.Login)
+		unsecured.POST("/signup", controllers.Signup)
+		secured := unsecured.Group("/secured").Use(middlewares.Auth())
+		{
+			secured.GET("/ping", controllers.Hey)
+		}
+	}
+	return router
 }
